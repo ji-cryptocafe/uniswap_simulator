@@ -2,11 +2,10 @@ import React,{ useMemo, useEffect, useState} from 'react';
 import {Stack, Box,  Typography, Grid} from '@material-ui/core';
 import {useAtom} from 'jotai'
 import { useAtomValue } from 'jotai/utils'
-import { token0Atom, token1Atom,  ethPriceAtom, token1PriceAtom,token0PriceAtom, selectedPositionAtom, getLiquidityForAmountsVariant, convertToTokenInfo} from '../store/index'
+import { token0Atom, token1Atom,  ethPriceAtom, token1PriceAtom,token0PriceAtom, selectedPositionAtom, getLiquidityForAmountsVariant, convertToTokenInfo} from '../store/index' // Removed getPoolDayData
 import {FiberManualRecord} from '@material-ui/icons'
-import {GraphQLClient} from "graphql-request";
+// import {GraphQLClient} from "graphql-request"; // Not needed if not fetching
 import {withStyles} from '@material-ui/core/styles';
-import {getPoolDayData} from '../docments'
 import {computePoolAddress, FACTORY_ADDRESS,FeeAmount} from '@uniswap/v3-sdk'
 import dayjs from 'dayjs'
 
@@ -15,15 +14,19 @@ const formatter = new Intl.NumberFormat('en-GB', { maximumSignificantDigits: 4 }
 const formatter3 = new Intl.NumberFormat('en-GB', { maximumSignificantDigits: 3 })
 
 const green = "#27AE60"
-const clientV3 = new GraphQLClient('https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-alt')
+// const clientV3 = new GraphQLClient('https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-alt'); // Remove client
 
 const LiquidityInfoBox = React.memo(() =>{
-  const [poolData, setPoolData] = useState();
-  const [fees0, setFees0] = useState();
-  const [fees1, setFees1] = useState();
-  const [isPoolExisted, setIsPoolExisted] = useState(false);
-  const token0 = convertToTokenInfo(useAtomValue(token0Atom))
-  const token1 = convertToTokenInfo(useAtomValue(token1Atom))
+  const [poolData, setPoolData] = useState(null); // Initialize with null
+  const [fees0, setFees0] = useState(null);
+  const [fees1, setFees1] = useState(null);
+  const [isPoolExisted, setIsPoolExisted] = useState(false); // Default to false
+
+  const token0Info = useAtomValue(token0Atom)
+  const token1Info = useAtomValue(token1Atom)
+  const token0 = convertToTokenInfo(token0Info) // Ensure these are Token instances for SDK functions
+  const token1 = convertToTokenInfo(token1Info)
+
   const token1Price = useAtomValue(token1PriceAtom)
   const token0Price = useAtomValue(token0PriceAtom)
   const ethPrice = useAtomValue(ethPriceAtom)
@@ -53,42 +56,57 @@ const LiquidityInfoBox = React.memo(() =>{
   },[m,M])
 
   const getAveratePoolData = (poolDataType, window) =>{
-    if(!poolData) return null
+    if(!poolData || poolData.length === 0) return 0; // Handle no pool data
     return poolData.slice(1,window+1).reduce((acc,c)=>acc+Number(c[poolDataType]),0)/window
   }
 
   const aggregatePoolData = async()=>{
-    let liquidity = 0
-    setIsPoolExisted(false)
-    const poolAddress = computePoolAddress({factoryAddress: FACTORY_ADDRESS, tokenA:token0, tokenB:token1, fee: feeAmount}).toLowerCase()
-    const {poolDayDatas} = await clientV3.request(getPoolDayData, {poolAddress})
-    const formattedData = poolDayDatas.map(d => ({...d,date: dayjs.unix(d.date).format()}))
-    if(formattedData && formattedData.length > 14){
-      setIsPoolExisted(true)
-      if(token0.sortsBefore(token1)){
-        const p = token0Price / token1Price
-        liquidity = getLiquidityForAmountsVariant(p,m,M,depositValue / ethPrice / token1Price)
-        const fees0 = Object.fromEntries(([3,7,14]).map(i=>([i,(Number(formattedData[0].feeGrowthGlobal0X128)-Number(formattedData[i].feeGrowthGlobal0X128)) * liquidity / (2**128) * 10**(meanDecimals -token0.decimals)])))
-        const fees1 = Object.fromEntries(([3,7,14]).map(i=>([i,(Number(formattedData[0].feeGrowthGlobal1X128)-Number(formattedData[i].feeGrowthGlobal1X128)) * liquidity / (2**128) * 10**(meanDecimals -token1.decimals)])))
-        setFees0(fees0)
-        setFees1(fees1)
-        setPoolData(formattedData)
-      }else{
-        const p = token1Price / token0Price
-        liquidity = getLiquidityForAmountsVariant(p,1/M,1/m,depositValue / ethPrice / token0Price)
-        const fees1 = Object.fromEntries(([3,7,14]).map(i=>([i,(Number(formattedData[0].feeGrowthGlobal0X128)-Number(formattedData[i].feeGrowthGlobal0X128)) * liquidity / (2**128) * 10**(meanDecimals -token1.decimals)])))
-        const fees0 = Object.fromEntries(([3,7,14]).map(i=>([i,(Number(formattedData[0].feeGrowthGlobal1X128)-Number(formattedData[i].feeGrowthGlobal1X128)) * liquidity / (2**128) * 10**(meanDecimals -token0.decimals)])))   
-        setFees0(fees0)
-        setFees1(fees1)
-        setPoolData(formattedData)
+    console.warn("aggregatePoolData in LiquidityInfoBox is using dummy data or disabled.");
+    setIsPoolExisted(false); // Default to pool not existing
+    setPoolData(null);
+    setFees0(null);
+    setFees1(null);
+
+    // To show dummy data for an "existing" pool, you can uncomment and modify below:
+    /*
+    const dummyPoolDayDatas = Array(15).fill(null).map((_, i) => ({
+      date: dayjs().subtract(i + 1, 'day').unix(), // Ensure dates are in the past
+      feeGrowthGlobal0X128: (100000000000000000000000000000000000 + i * 1000000000000000000000).toString(),
+      feeGrowthGlobal1X128: (200000000000000000000000000000000000 + i * 2000000000000000000000).toString(),
+      tvlUSD: (1000000 - i * 10000).toString(),
+      volumeUSD: (100000 - i * 1000).toString(),
+      feesUSD: (300 - i * 3).toString(),
+    }));
+    const formattedData = dummyPoolDayDatas.map(d => ({...d,date: dayjs.unix(d.date).format()}))
+    
+    if (formattedData && formattedData.length >= 14 && token0 && token1) {
+      setIsPoolExisted(true);
+      setPoolData(formattedData);
+      let liquidity = 0;
+      if (token0.sortsBefore(token1)) {
+        const p = token0Price / token1Price;
+        liquidity = getLiquidityForAmountsVariant(p, m, M, depositValue / ethPrice / token1Price);
+        const calculatedFees0 = Object.fromEntries(([3,7,14]).map(i=>([i,(Number(formattedData[0].feeGrowthGlobal0X128)-Number(formattedData[i].feeGrowthGlobal0X128)) * liquidity / (2**128) * 10**(meanDecimals -token0.decimals)])))
+        const calculatedFees1 = Object.fromEntries(([3,7,14]).map(i=>([i,(Number(formattedData[0].feeGrowthGlobal1X128)-Number(formattedData[i].feeGrowthGlobal1X128)) * liquidity / (2**128) * 10**(meanDecimals -token1.decimals)])))
+        setFees0(calculatedFees0);
+        setFees1(calculatedFees1);
+      } else {
+        const p = token1Price / token0Price;
+        liquidity = getLiquidityForAmountsVariant(p, 1/M, 1/m, depositValue / ethPrice / token0Price);
+        const calculatedFees1 = Object.fromEntries(([3,7,14]).map(i=>([i,(Number(formattedData[0].feeGrowthGlobal0X128)-Number(formattedData[i].feeGrowthGlobal0X128)) * liquidity / (2**128) * 10**(meanDecimals -token1.decimals)])))
+        const calculatedFees0 = Object.fromEntries(([3,7,14]).map(i=>([i,(Number(formattedData[0].feeGrowthGlobal1X128)-Number(formattedData[i].feeGrowthGlobal1X128)) * liquidity / (2**128) * 10**(meanDecimals -token0.decimals)])))   
+        setFees0(calculatedFees0);
+        setFees1(calculatedFees1);
       }
     }
+    */
   }
+
   useEffect(() => {
     if(token0 != undefined && token1 != undefined){
       aggregatePoolData()
     }
-  }, [feeAmount,m,M,depositValue]);
+  }, [token0?.address, token1?.address, feeAmount, m, M, depositValue]); // Add token addresses to dependency array
   
   return (
     <Box p={1} sx={{backgroundColor:'#f1f5f9', mx:-2, mb:2, px:1, py:2,mt:3, color:'slategrey'}}>
@@ -100,7 +118,7 @@ const LiquidityInfoBox = React.memo(() =>{
               <Typography variant='subtitle1' sx={{display:'flex', alignItems: 'center', mt:1, mb:1}}><FiberManualRecord fontSize="small" style={{color: green}}/>V3 Range Position</Typography>
               <Typography variant='caption'>Capital Required</Typography>
               <Typography variant='h5' style={{color:green}}>${formatter.format(depositValue)}</Typography>
-              <Typography variant='caption'>Deposit ratio ({token0.symbol}:{token1.symbol})</Typography>
+              <Typography variant='caption'>Deposit ratio ({token0?.symbol || 'T0'}:{token1?.symbol || 'T1'})</Typography>
               <Typography variant='h5' style={{color:green}}>{deposit_ratio}</Typography>                  
               <Typography variant='caption'>Current fees per $ vs. V2</Typography>
               <Typography variant='h5' style={{color:green}}>{formatter3.format(minEfficancy)}x </Typography>
@@ -111,14 +129,14 @@ const LiquidityInfoBox = React.memo(() =>{
               <Typography variant='subtitle1' sx={{display:'flex', alignItems: 'center', mt:1, mb:1}}><FiberManualRecord fontSize="small" style={{color: 'gray'}}/>V2 Range Position</Typography>
               <Typography variant='caption'>Capital Required</Typography>
               <Typography variant='h5'>${formatter.format(depositValue * efficancy).toLocaleString()}</Typography>
-              <Typography variant='caption'>Deposit ratio ({token0.symbol}:{token1.symbol})</Typography>
+              <Typography variant='caption'>Deposit ratio ({token0?.symbol || 'T0'}:{token1?.symbol || 'T1'})</Typography>
               <Typography variant='h5'>50 : 50</Typography>
             </Box>
           </Grid>
         </Grid>
       </Box>
       {
-        isPoolExisted ? <>
+        isPoolExisted && fees0 && fees1 && poolData ? <> {/* Check if data is available */}
           <Box pt={2}>
             <Typography variant='subtitle1' sx={{ml:1,fontWeight:600}}>Estimated Fee</Typography>
             <Typography variant='body2' sx={{ml:1}}>(The same liquidity was provided / Price was always in LP Range)</Typography>
@@ -126,21 +144,21 @@ const LiquidityInfoBox = React.memo(() =>{
               <Grid item xs={6}>
                 <Box pl={1}>
                   <Typography variant='caption'>{token0.symbol} fees (7Day)</Typography>
-                  <Typography variant='h5'>{fees0 && formatter.format(fees0[7])} {token0.symbol}</Typography> 
+                  <Typography variant='h5'>{formatter.format(fees0[7])} {token0.symbol}</Typography> 
                   <Typography variant='caption'>{token1.symbol} fees (7Day)</Typography>
-                  <Typography variant='h5'>{fees1 && formatter.format(fees1[7])} {token1.symbol}</Typography>    
+                  <Typography variant='h5'>{formatter.format(fees1[7])} {token1.symbol}</Typography>    
                   <Typography variant='caption'>APY (Avg. 7Day)</Typography>
-                  <Typography variant='h5'>{fees1 && fees0 && formatter.format((fees1[7] + fees0[7] * token0Price / token1Price)/depositAmount/7*365*100)} %</Typography>                           
+                  <Typography variant='h5'>{formatter.format((fees1[7] + fees0[7] * token0Price / token1Price)/depositAmount/7*365*100)} %</Typography>                           
                 </Box> 
               </Grid>
               <Grid item xs={6}>
                 <Box>
                   <Typography variant='caption'>{token0.symbol} fees (14Day)</Typography>
-                  <Typography variant='h5'>{fees0 && formatter.format(fees0[14])} {token0.symbol}</Typography> 
+                  <Typography variant='h5'>{formatter.format(fees0[14])} {token0.symbol}</Typography> 
                   <Typography variant='caption'>{token1.symbol} fees (14Day)</Typography>
-                  <Typography variant='h5'>{fees1 &&formatter.format(fees1[14])} {token1.symbol}</Typography>    
+                  <Typography variant='h5'>{formatter.format(fees1[14])} {token1.symbol}</Typography>    
                   <Typography variant='caption'>APY (Avg. 14Day)</Typography>
-                  <Typography variant='h5'>{fees1 && fees0 && formatter.format((fees1[14] + fees0[14] * token0Price / token1Price)/depositAmount/14*365*100)} %</Typography>              
+                  <Typography variant='h5'>{formatter.format((fees1[14] + fees0[14] * token0Price / token1Price)/depositAmount/14*365*100)} %</Typography>              
                 </Box> 
               </Grid>          
             </Grid>
@@ -174,7 +192,7 @@ const LiquidityInfoBox = React.memo(() =>{
           <Box pt={2}>
             <Typography variant='subtitle1' sx={{ml:1,fontWeight:600}}>Estimated Fee & Pool Info</Typography>
             <Box width='100%' display='flex' justifyContent='center'>
-              <Typography variant='subtitle1' sx={{ml:1}}>Pool doesn't exist</Typography>
+              <Typography variant='subtitle1' sx={{ml:1, py: 2}}>Real-time pool data fetching is disabled or pool does not exist.</Typography>
             </Box>
           </Box>
         </>
@@ -184,49 +202,3 @@ const LiquidityInfoBox = React.memo(() =>{
 })
 
 export default LiquidityInfoBox
-
-
-      // <Table size="small">
-      //   <TableHead>
-      //     <TableRow>
-      //       <TableCell align='center' />
-      //       <TableCell align='center' padding='none'>Capital Required</TableCell>
-      //       <TableCell align='center' padding='none'>Deposit ratio ({token0.symbol}:{token1.symbol})</TableCell>
-      //       <TableCell align='center' padding='none'>Fees per $ vs. V2</TableCell>
-      //     </TableRow>
-      //   </TableHead>
-      //   <TableBody>
-      //     <TableRow>
-      //       <TableCell component="th" scope="row"align='center' ><Typography variant='subtitle1' sx={{display:'flex', alignItems: 'center'}}><FiberManualRecord fontSize="small" style={{color: green}}/>V3 {isLgMd && <>Position</>}</Typography></TableCell>
-      //       <TableCell align='center' padding='none'>
-      //         <Typography variant='h5' style={{color:green}}>${formatter.format(depositValue)}</Typography>
-      //       </TableCell>
-      //       <TableCell align='center' padding='none'>
-      //         <Typography variant='h5' style={{color:green}}>{deposit_ratio}</Typography>
-      //       </TableCell>
-      //       <TableCell align='center' padding='none'>
-      //         <Typography variant='h5' style={{color:green}}>{efficancy.toPrecision(3)}x</Typography>
-      //       </TableCell>
-      //     </TableRow>
-      //     <TableRow>
-      //       <TableCell component="th" scope="row" align='center' ><Typography variant='subtitle1' sx={{display:'flex', alignItems: 'center', mt:2, mb:1.5}}><FiberManualRecord fontSize="small" style={{color: 'gray'}}/>V2 {isLgMd && <>Position</>}</Typography></TableCell>
-      //       <TableCell align='center' padding='none'>
-      //         <Typography variant='h5'>${formatter.format(depositValue * efficancy).toLocaleString()}</Typography>
-      //       </TableCell>
-      //       <TableCell align='center' padding='none'>
-      //         <Typography variant='h5'>50 : 50</Typography>
-      //       </TableCell>
-      //       <TableCell align='center' padding='none'>
-      //         <Typography variant='h5'>1.0x</Typography>
-      //       </TableCell>
-      //     </TableRow>                                                                           
-      //   </TableBody>
-      // </Table>    
-
-//       const TableCell = withStyles({
-//   root: {
-//     borderBottom: "none"
-//   }
-// })(MuiTableCell);
-
-        {/* <Typography variant='caption'>Fees per $ vs. V2 (at Range geometric mean price)</Typography> */}

@@ -9,7 +9,6 @@
     "generate": "graphql-codegen --config codegen.yml"
   },
   "dependencies": {
-    "@coingecko/cg-api-ts": "0.0.50",
     "@emotion/react": "^11.1.5",
     "@emotion/styled": "^11.1.5",
     "@ethersproject/address": "^5.1.0",
